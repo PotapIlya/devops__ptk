@@ -1,0 +1,87 @@
+version: '3'
+
+services:
+
+
+  nginx:
+   image: nginx:latest
+   container_name: nginx
+   restart: unless-stopped
+   volumes:
+     - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+   ports:
+     - "8080:80"
+   depends_on:
+     - frontend
+     - backend
+   networks:
+    - frontend
+    - backend
+
+# Не работает hot reload, решение в статье не канает
+#https://daten-und-bass.io/blog/enabling-hot-reloading-with-vuejs-and-vue-cli-in-docker/
+  frontend:
+    image: nginx
+    container_name: frontend
+    restart: unless-stopped
+    volumes:
+      - ./../front/dist/:/usr/share/nginx/html
+    networks:
+      - frontend
+
+  backend:
+    build:
+      context: ./../backend/
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: unless-stopped
+    volumes:
+      - ./../backend/:/app/
+    depends_on:
+      - db
+#      - liquibase
+    networks:
+      - backend
+      - db
+
+  db:
+    image: postgres
+    restart: unless-stopped
+    container_name: db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    volumes:
+     - ./../db/database/:/var/lib/postgresql/data
+#    ports:
+#      - "5432:5432"
+    networks:
+      - db
+
+#https://marcos-lobo.medium.com/database-migrations-with-liquibase-and-docker-b13c9db45a7a
+#  liquibase:
+#    depends_on:
+#      - db
+#    links:
+#      - 'db:db'
+#    container_name: liquibase
+#    image: liquibase/liquibase
+#    command: --url=jdbc:postgresql://db:5432/postgres?username=postgres&password=postgres --changeLogFile=/liquibase/changelog.xml update
+#    volumes:
+#      - ./../db/migrations/changelog.xml:/liquibase/changelog.xml
+#      - ./../db/migrations/scripts/:/liquibase/scripts
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  db:
+    driver: bridge
+#  common:
+#    driver: bridge
+
+#а зачем нам нужны links, если есть networks?
+#с помощью networks мы можем создать одну сеть на все контейнеры,
+#а если нам нужно по группам изолировать контейнеры то мы можем написать так (получается тоже самое что и links)
